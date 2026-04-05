@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>IM 0207 — Route Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Barlow+Condensed:wght@300;400;600&display=swap');
+
+  :root {
+    --orange: #E8620A;
+    --orange-dim: rgba(232,98,10,0.15);
+    --orange-glow: rgba(232,98,10,0.4);
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181d24;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0ede8;
+    --muted: #6b7280;
+    --green: #22c55e;
+    --passed: #2a2f38;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+  }
+
+  .route-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 2px;
+  }
+
+  .route-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  /* Next Stop Hero */
+  .hero {
+    margin: 20px 16px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--orange), transparent);
+  }
+
+  .hero-label {
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .hero-stop {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .hero-time {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .eta-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .eta-box {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .eta-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--orange);
+    line-height: 1;
+  }
+
+  .eta-unit {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* Destination card */
+  .dest-card {
+    margin: 12px 16px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .dest-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  .dest-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .dest-time {
+    text-align: right;
+  }
+
+  .dest-arrival {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--green);
+  }
+
+  .dest-date {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* GPS status */
+  .gps-bar {
+    margin: 12px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .gps-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .gps-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .gps-dot.error { background: #ef4444; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Section header */
+  .section-header {
+    margin: 24px 16px 10px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  /* Stop list */
+  .stops-list {
+    padding: 0 16px 100px;
+    position: relative;
+  }
+
+  .stop-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 0 0 0 0;
+    position: relative;
+    margin-bottom: 0;
+  }
+
+  /* Vertical line track */
+  .track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 32px;
+  }
+
+  .track-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--passed);
+    border: 2px solid var(--passed);
+    flex-shrink: 0;
+    z-index: 1;
+    transition: all 0.4s;
+    margin-top: 18px;
+  }
+
+  .track-dot.current {
+    background: var(--orange);
+    border-color: var(--orange);
+    box-shadow: 0 0 12px var(--orange-glow);
+    width: 14px; height: 14px;
+  }
+
+  .track-dot.upcoming {
+    background: transparent;
+    border-color: var(--muted);
+  }
+
+  .track-line {
+    width: 2px;
+    flex: 1;
+    min-height: 24px;
+    background: var(--border);
+  }
+
+  .track-line.passed {
+    background: var(--orange);
+    opacity: 0.3;
+  }
+
+  /* Stop content */
+  .stop-content {
+    flex: 1;
+    padding: 12px 0 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stop-item:last-child .stop-content {
+    border-bottom: none;
+  }
+
+  .stop-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2px;
+  }
+
+  .stop-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+
+  .stop-name.current { color: var(--orange); }
+  .stop-name.upcoming { color: var(--text); }
+
+  .stop-scheduled {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .stop-tag {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    font-weight: 600;
+  }
+
+  .current-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--orange-dim);
+    border: 1px solid var(--orange-glow);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--orange);
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* Manual override */
+  .manual-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--orange);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 28px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px var(--orange-glow);
+    white-space: nowrap;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .manual-btn:active { transform: translateX(-50%) scale(0.97); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 0 40px;
+    width: 100%;
+    max-height: 70vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+
+  .modal-header {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .modal-stop {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .modal-stop:active { background: var(--surface2); }
+  .modal-stop:last-child { border-bottom: none; }
+
+  .modal-stop-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .modal-stop-time {
+    font-size: 14px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="route-label">IM 0207 · Intercape Mainliner</div>
+  <div class="route-title">East London → Pretoria</div>
+</div>
+
+<!-- GPS Status -->
+<div class="gps-bar">
+  <div class="gps-dot" id="gpsDot"></div>
+  <span id="gpsStatus">Requesting location…</span>
+</div>
+
+<!-- Next Stop Hero -->
+<div class="hero">
+  <div class="hero-label">Next Stop</div>
+  <div class="hero-stop" id="nextStopName">—</div>
+  <div class="hero-time" id="nextStopSched">Scheduled: —</div>
+  <div class="eta-row">
+    <div class="eta-box">
+      <div class="eta-val" id="etaKm">—</div>
+      <div class="eta-unit">km away</div>
+    </div>
+    <div class="eta-box">
+      <div class="eta-val" id="etaMin">—</div>
+      <div class="eta-unit">mins est.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Destination -->
+<div class="dest-card">
+  <div>
+    <div class="dest-label">Final Destination</div>
+    <div class="dest-name">Pretoria</div>
+  </div>
+  <div class="dest-time">
+    <div class="dest-arrival" id="destEta">—</div>
+    <div class="dest-date" id="destDate">Mon 06 Apr</div>
+  </div>
+</div>
+
+<!-- Stop List -->
+<div class="section-header">All Stops</div>
+<div class="stops-list" id="stopsList"></div>
+
+<!-- Manual Override -->
+<button class="manual-btn" onclick="openModal()">📍 Set Current Stop Manually</button>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">Where are you now?</div>
+    <div id="modalStops"></div>
+  </div>
+</div>
+
+<script>
+const STOPS = [
+  { name: "East London (Windmill Park)", time: "16:30", lat: -33.0153, lng: 27.9116 },
+  { name: "East London Station",         time: "16:40", lat: -33.0117, lng: 27.9050 },
+  { name: "King William's Town",          time: "17:35", lat: -32.8859, lng: 27.3971 },
+  { name: "Stutterheim",                  time: "18:15", lat: -32.5667, lng: 27.4167 },
+  { name: "Cathcart",                     time: "18:50", lat: -32.2985, lng: 27.1415 },
+  { name: "Queenstown Office",            time: "19:40", lat: -31.8975, lng: 26.8798 },
+  { name: "Queenstown",                   time: "19:50", lat: -31.8976, lng: 26.8685 },
+  { name: "Jamestown",                    time: "21:25", lat: -31.1167, lng: 26.8167 },
+  { name: "Aliwal North",                 time: "22:10", lat: -30.6917, lng: 26.7167 },
+  { name: "Rouxville",                    time: "22:40", lat: -30.4167, lng: 26.8333 },
+  { name: "Smithfield",                   time: "23:15", lat: -30.2167, lng: 26.5167 },
+  { name: "Reddersburg",                  time: "00:05", lat: -29.7833, lng: 26.1667 },
+  { name: "Bloemfontein",                 time: "01:00", lat: -29.1217, lng: 26.2140 },
+  { name: "Theunissen",                   time: "02:10", lat: -28.4167, lng: 26.7167 },
+  { name: "Welkom",                       time: "03:10", lat: -27.9833, lng: 26.7333 },
+  { name: "Kroonstad",                    time: "04:10", lat: -27.6500, lng: 27.2333 },
+  { name: "Kroonvaal",                    time: "05:05", lat: -27.2667, lng: 27.5667 },
+  { name: "Vanderbijlpark",               time: "05:55", lat: -26.7011, lng: 27.8372 },
+  { name: "Johannesburg",                 time: "07:00", lat: -26.2041, lng: 28.0473 },
+  { name: "Midrand",                      time: "07:45", lat: -25.9989, lng: 28.1278 },
+  { name: "Pretoria",                     time: "08:20", lat: -25.7447, lng: 28.1875 },
+];
+
+// Scheduled times as minutes from midnight, accounting for day crossover
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  let mins = h * 60 + m;
+  // Times after midnight belong to next day — add 24h
+  if (h < 12) mins += 1440;
+  return mins;
+}
+
+const SCHED_MINS = STOPS.map(s => timeToMinutes(s.time));
+const DEPARTURE_MINS = SCHED_MINS[0]; // 16:30 = 990
+
+let currentStopIdx = 0; // index of stop we're heading TO (or just passed)
+let watchId = null;
+let manualOverride = false;
+let lastLat = null, lastLng = null;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function nowMinutes() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function findClosestUpcomingStop(lat, lng) {
+  // Find which stop we're closest to, preferring stops ahead
+  let minDist = Infinity, bestIdx = 0;
+  for (let i = 0; i < STOPS.length; i++) {
+    const d = haversine(lat, lng, STOPS[i].lat, STOPS[i].lng);
+    if (d < minDist) { minDist = d; bestIdx = i; }
+  }
+  // If we're closest to stop i, we're either at it or heading to i+1
+  return bestIdx;
+}
+
+function estimateFromSchedule() {
+  // Fall back: use wall clock to estimate position
+  const now = nowMinutes();
+  let nowAdj = now;
+  if (now < 720) nowAdj += 1440; // if it's before noon, add 24h (post-midnight)
+
+  // Find next stop based on schedule
+  for (let i = 0; i < SCHED_MINS.length; i++) {
+    if (SCHED_MINS[i] > nowAdj) return i;
+  }
+  return STOPS.length - 1;
+}
+
+function updateUI(lat, lng, fromGPS) {
+  const closestIdx = fromGPS ? findClosestUpcomingStop(lat, lng) : estimateFromSchedule();
+  const nearStop = STOPS[closestIdx];
+  const distToNearest = fromGPS ? haversine(lat, lng, nearStop.lat, nearStop.lng) : null;
+
+  // Determine current position: if within 8km of a stop, consider at that stop
+  let atStopIdx, nextIdx;
+  if (fromGPS && distToNearest < 8) {
+    atStopIdx = closestIdx;
+    nextIdx = Math.min(closestIdx + 1, STOPS.length - 1);
+  } else {
+    atStopIdx = Math.max(closestIdx - 1, 0);
+    nextIdx = closestIdx;
+  }
+
+  const nextStop = STOPS[nextIdx];
+  const distToNext = fromGPS ? haversine(lat, lng, nextStop.lat, nextStop.lng) : null;
+
+  // ETA: use distance ÷ avg bus speed (80 km/h)
+  let etaMin = '—', etaKm = '—';
+  if (fromGPS && distToNext !== null) {
+    etaKm = distToNext.toFixed(0);
+    etaMin = Math.round(distToNext / 80 * 60);
+  } else {
+    // Schedule-based ETA
+    const now = nowMinutes();
+    let nowAdj = now < 720 ? now + 1440 : now;
+    const diff = SCHED_MINS[nextIdx] - nowAdj;
+    if (diff > 0) etaMin = diff;
+  }
+
+  document.getElementById('nextStopName').textContent = nextStop.name;
+  document.getElementById('nextStopSched').textContent = `Scheduled: ${nextStop.time}`;
+  document.getElementById('etaKm').textContent = etaKm;
+  document.getElementById('etaMin').textContent = etaMin;
+
+  // Pretoria ETA
+  const pretoria = STOPS[STOPS.length - 1];
+  if (fromGPS && lat && lng) {
+    const distToPretoria = haversine(lat, lng, pretoria.lat, pretoria.lng);
+    const minsLeft = Math.round(distToPretoria / 80 * 60);
+    const arrival = new Date(Date.now() + minsLeft * 60000);
+    document.getElementById('destEta').textContent =
+      arrival.getHours().toString().padStart(2,'0') + ':' + arrival.getMinutes().toString().padStart(2,'0');
+  } else {
+    document.getElementById('destEta').textContent = '08:20';
+  }
+
+  renderStopList(nextIdx);
+}
+
+function renderStopList(nextIdx) {
+  const list = document.getElementById('stopsList');
+  list.innerHTML = '';
+
+  STOPS.forEach((stop, i) => {
+    const isPassed = i < nextIdx - 1;
+    const isCurrent = i === nextIdx - 1;
+    const isNext = i === nextIdx;
+    const isUpcoming = i > nextIdx;
+
+    const item = document.createElement('div');
+    item.className = 'stop-item';
+
+    const isLast = i === STOPS.length - 1;
+
+    item.innerHTML = `
+      <div class="track">
+        <div class="track-dot ${isCurrent ? 'current' : isUpcoming || isNext ? 'upcoming' : ''}"></div>
+        ${!isLast ? `<div class="track-line ${isPassed || isCurrent ? 'passed' : ''}"></div>` : ''}
+      </div>
+      <div class="stop-content">
+        <div class="stop-top">
+          <div class="stop-name ${isCurrent ? 'current' : isNext || isUpcoming ? 'upcoming' : ''}">${stop.name}</div>
+          <div class="stop-scheduled">${stop.time}</div>
+        </div>
+        ${isNext ? '<div class="current-indicator">▶ NEXT STOP</div>' : ''}
+        ${isCurrent ? '<div class="current-indicator">● NEAR HERE</div>' : ''}
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+function openModal() {
+  const overlay = document.getElementById('modalOverlay');
+  const container = document.getElementById('modalStops');
+  container.innerHTML = '';
+  STOPS.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'modal-stop';
+    el.innerHTML = `<div class="modal-stop-name">${s.name}</div><div class="modal-stop-time">${s.time}</div>`;
+    el.onclick = () => { manualSetStop(i); closeModal(); };
+    container.appendChild(el);
+  });
+  overlay.classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+function manualSetStop(idx) {
+  manualOverride = true;
+  document.getElementById('gpsDot').className = 'gps-dot active';
+  document.getElementById('gpsStatus').textContent = `Manual: near ${STOPS[idx].name}`;
+  // Use that stop's coords
+  const s = STOPS[idx];
+  updateUI(s.lat, s.lng, true);
+}
+
+// GPS
+function startGPS() {
+  if (!navigator.geolocation) {
+    fallbackToSchedule();
+    return;
+  }
+  document.getElementById('gpsDot').className = 'gps-dot';
+  document.getElementById('gpsStatus').textContent = 'Requesting GPS…';
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      if (manualOverride) return;
+      lastLat = pos.coords.latitude;
+      lastLng = pos.coords.longitude;
+      document.getElementById('gpsDot').className = 'gps-dot active';
+      document.getElementById('gpsStatus').textContent =
+        `GPS active · ±${Math.round(pos.coords.accuracy)}m`;
+      updateUI(lastLat, lastLng, true);
+    },
+    err => {
+      document.getElementById('gpsDot').className = 'gps-dot error';
+      document.getElementById('gpsStatus').textContent = 'GPS unavailable — using schedule';
+      fallbackToSchedule();
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+  );
+}
+
+function fallbackToSchedule() {
+  updateUI(null, null, false);
+  // Refresh every minute
+  setInterval(() => { if (!manualOverride && !lastLat) updateUI(null, null, false); }, 60000);
+}
+
+// Scroll to current stop
+function scrollToCurrent() {
+  setTimeout(() => {
+    const dots = document.querySelectorAll('.track-dot.current');
+    if (dots.length) dots[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 500);
+}
+
+// Init
+startGPS();
+// Initial schedule-based render while waiting for GPS
+updateUI(null, null, false);
+scrollToCurrent();
+</script>
+</body>
+</html>
